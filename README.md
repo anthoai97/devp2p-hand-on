@@ -1,4 +1,4 @@
-# Ethereum Learning Path: devp2p networking
+# Ethereum Learning: devp2p networking
 
 A sample Go program to connect two machines using devp2p.
 A p2p protocol is defined which sends and receives a message between connected peers.
@@ -7,7 +7,9 @@ Program supports 2 optional arguments:
 
 --port: This is used for changing default 30301 port to some other port, where the server listens.
 
---connect-to: This is used for connecting to a server for communicating. If this is not given, server runs forever and keeps accepting connection requests otherwise server stops after sending and receiving message from connected peer.
+--node: Node name
+
+--target: This is used for connecting to a server for communicating. If this is not given, server runs forever and keeps accepting connection requests otherwise server stops after sending and receiving message from connected peer.
 
 **How to build:**
 
