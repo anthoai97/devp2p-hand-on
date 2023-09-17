@@ -24,7 +24,7 @@ var (
 	P2PPort int
 
 	// self-explanatory command line arguments
-	verbose = flag.Bool("v", true, "more verbose logs")
+	verbose = flag.Bool("v", false, "more verbose logs")
 	// remoteport   = flag.Int("p", 0, "remote port (enables remote RPC lookup of enode)")
 	// remotehost   = flag.String("h", "127.0.0.1", "remote host (RPC, p2p)")
 	// enodeconnect = flag.String("e", "", "enode to connect to (overrides remote RPC lookup)")
