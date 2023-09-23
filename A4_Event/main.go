@@ -18,14 +18,14 @@ func main() {
 	privkey_one := utils.GenerateKey()
 	privkey_two := utils.GenerateKey()
 
-	srv1 := &p2p.Server{Config: p2p.Config{
+	srv1 := p2p.Server{Config: p2p.Config{
 		PrivateKey:  privkey_one,
 		MaxPeers:    1,
 		NoDiscovery: true,
 		Logger:      utils.Log.New("server", "number-1"),
 	}}
 
-	srv2 := &p2p.Server{Config: p2p.Config{
+	srv2 := p2p.Server{Config: p2p.Config{
 		PrivateKey:  privkey_two,
 		MaxPeers:    1,
 		NoDiscovery: true,
@@ -71,7 +71,7 @@ func main() {
 		}
 	}()
 
-	if !utils.SyncAddPeer(srv1, srv2.Self()) {
+	if !utils.SyncAddPeer(&srv1, srv2.Self()) {
 		log.Fatal("peer not connected")
 	}
 
