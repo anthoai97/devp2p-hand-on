@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"sync"
@@ -13,9 +14,10 @@ import (
 )
 
 var (
-	msgC    = make(chan string)
-	msgWg   = &sync.WaitGroup{}
-	protoWg = &sync.WaitGroup{}
+	msgC     = make(chan string)
+	msgWg    = &sync.WaitGroup{}
+	protoWg  = &sync.WaitGroup{}
+	endpoint = "go-ethereum-test-ipc"
 )
 
 type FooMsg struct {
@@ -42,7 +44,12 @@ var protocol = p2p.Protocol{
 			utils.Log.Info("sending message", "peer", peer, "msg", outMessage)
 		}
 
+		// note that receive message event doesn't get emitted until we ReadMsg()
+		rw.ReadMsg()
+
 		// wait for the subcription to end
+		msgWg.Wait()
+		protoWg.Done()
 
 		// terminate protocal
 		return nil
@@ -71,7 +78,6 @@ func newRPCServer() (*rpc.Server, error) {
 	}
 
 	// Listen on a random endpoint.
-	endpoint := "go-ethereum-test-ipc"
 	if runtime.GOOS == "windows" {
 		endpoint = `\\.\pipe\` + endpoint
 	} else {
@@ -100,32 +106,44 @@ func main() {
 	privkey_two := utils.GenerateKey()
 
 	srv1 := &p2p.Server{Config: p2p.Config{
-		PrivateKey:  privkey_one,
-		MaxPeers:    1,
-		NoDiscovery: true,
-		Logger:      utils.Log.New("server", "number-1"),
+		PrivateKey:      privkey_one,
+		MaxPeers:        1,
+		NoDiscovery:     true,
+		EnableMsgEvents: true,
+		Protocols:       []p2p.Protocol{protocol},
+		Logger:          utils.Log.New("server", "number-1"),
 	}}
 
 	srv2 := &p2p.Server{Config: p2p.Config{
-		PrivateKey:  privkey_two,
-		MaxPeers:    1,
-		NoDiscovery: true,
-		NoDial:      true,
-		ListenAddr:  fmt.Sprintf(":%d", 31234),
-		Logger:      utils.Log.New("server", "number-2"),
+		PrivateKey:      privkey_two,
+		MaxPeers:        1,
+		NoDiscovery:     true,
+		NoDial:          true,
+		EnableMsgEvents: true,
+		Protocols:       []p2p.Protocol{protocol},
+		ListenAddr:      fmt.Sprintf(":%d", 31234),
+		Logger:          utils.Log.New("server", "number-2"),
 	}}
 
-	srv1.Start()
+	err := srv1.Start()
+	if err != nil {
+		utils.Log.Crit("Start p2p.Server #1 failed", "err", err)
+	}
 	defer srv1.Stop()
-	srv2.Start()
+
+	err = srv2.Start()
+	if err != nil {
+		utils.Log.Crit("Start p2p.Server #2 failed", "err", err)
+	}
 	defer srv2.Stop()
 
 	// set up the event subscriptions on both servers
 	// the Err() on the Subscription object returns when subscription is closed
 	evOneC := make(chan *p2p.PeerEvent)
-	evTwoC := make(chan *p2p.PeerEvent)
 	sub_one := srv1.SubscribeEvents(evOneC)
 	defer sub_one.Unsubscribe()
+
+	evTwoC := make(chan *p2p.PeerEvent)
 	sub_two := srv2.SubscribeEvents(evTwoC)
 	defer sub_two.Unsubscribe()
 
@@ -141,6 +159,7 @@ func main() {
 					msgWg.Done()
 				}
 			case <-sub_one.Err():
+				utils.Log.Crit("Errrr")
 				return
 			}
 		}
@@ -157,11 +176,37 @@ func main() {
 					msgWg.Done()
 				}
 			case <-sub_two.Err():
+				utils.Log.Crit("Errrr")
 				return
 			}
 		}
 	}()
 
 	// Create rpc server
-	// msgWg.Wait()
+	server, err := newRPCServer()
+	if err != nil {
+		utils.Log.Crit("Create server fail", "err", err)
+	}
+	defer server.Stop()
+
+	if !utils.SyncAddPeer(srv1, srv2.Self()) {
+		log.Fatal("peer not connected")
+	}
+	utils.Log.Info("after add", "node one peers", srv1.Peers(), "node two peers", srv2.Peers())
+
+	client, err := rpc.Dial(endpoint)
+	if err != nil {
+		utils.Log.Crit("can't dial:", "err", err)
+	}
+
+	protoWg.Add(2)
+	msgWg.Add(1)
+
+	// call the RPC method
+	err = client.Call(nil, "foo_sendMessage", "supperrrrrrrrr")
+	if err != nil {
+		utils.Log.Crit("RPC call fail", "err", err)
+	}
+
+	protoWg.Wait()
 }
