@@ -1,0 +1,4 @@
+
+RPL Raw body => Block Header => Root State Hash (World State) => Current Block world trie database ?
+                             => Tx State Hash => => Current Block tx trie database ?
+
